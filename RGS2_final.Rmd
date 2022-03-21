@@ -1,0 +1,360 @@
+---
+title: "RGS2 HGSOC"
+output: html_notebook
+---
+
+```{r setup}
+
+library(Seurat)
+library(tidyverse)
+library(viridisLite)
+library(readxl)
+library(ggplot2)
+library(cowplot)
+
+theme_set(theme_cowplot())
+
+#colors to use
+use_colors <- c(
+  `Tumor cells` = "brown2",
+  `Ovarian stroma cells` = "#bcbddc",
+  `Myeloid cells` = "darkgoldenrod2",
+  `T/NK cells` = "#7A0177",
+  `B cells` = "#006837",
+  Fibroblasts = "#08519C",
+  `Smooth muscle cells` = "#6bAEd6",
+  `Mesothelial cells` = "#78c679",
+  `Endothelial cells` = "#EB96EB",
+  `Dendritic cells` = "cornsilk4",
+  `Plasma cells` = "chocolate4")
+
+#wrapper function for cell cycle assignment
+s.genes <- cc.genes$s.genes
+g2m.genes <- cc.genes$g2m.genes
+
+score_cc <- function(seu_obj) {
+  seu_obj <- CellCycleScoring(seu_obj, s.genes, g2m.genes)
+  seu_obj@meta.data$CC.Diff <- seu_obj@meta.data$S.Score - seu_obj@meta.data$G2M.Score
+  return(seu_obj)
+}
+
+```
+
+```{r load data from Olbrecht et al.}
+
+#load gene expression data
+
+olbrecht_data <- readRDS("C:/Users/Phili/Documents/Forschung/SCS_HGSOC/data/Olbrecht et al (Lambrecht)/2095-Olbrecht_counts_matrix.rds")
+
+olbrecht <- CreateSeuratObject(olbrecht_data, min.cells = 3)
+
+
+#load metadata
+
+olbrecht_metadata <- read.csv("data/Olbrecht et al (Lambrecht)/2093-Olbrecht_metadata.csv")
+
+sample_id <- FetchData(olbrecht, "ident")
+sample_id$cell_id <- rownames(sample_id)
+sample_id$sample_name <- substring(rownames(sample_id), first = 18)
+metadata <- left_join(x = sample_id, y = olbrecht_metadata, by = "sample_name")
+rownames(metadata) <- metadata$cell_id
+
+olbrecht <- AddMetaData(olbrecht, metadata = metadata)
+
+olbrecht$sample_id <- olbrecht$sample_name
+
+```
+
+```{r load data from Izar et al.}
+
+#load gene expression data
+izar_data <- read_tsv("data/Izar et al (Regev)/GSE146026_Izar_HGSOC_ascites_10x_log.tsv")
+
+izar_counts <- izar_data[8:nrow(izar_data),] %>% as.data.frame()
+rownames(izar_counts) <- izar_counts$Cell_ID
+colnames(izar_counts) <- izar_data[1,]
+izar_counts$`10x_barcode` <- NULL
+
+izar <- CreateSeuratObject(izar_counts, min.cells = 3)
+
+
+#load metadata
+
+izar_metadata <- izar_data[1:7,] %>% t() %>% as.data.frame()
+colnames(izar_metadata) <- izar_metadata[1,]
+rownames(izar_metadata) <- izar_metadata[,1]
+izar_metadata <- izar_metadata[2:nrow(izar_metadata),]
+
+izar <- AddMetaData(izar, metadata = izar_metadata)
+
+izar$sample_id <- izar$sample_ID
+
+```
+
+
+```{r load data from Olalekan et al.}
+
+olalekan_data_2834 <- read_csv("data/Olalekan et al (Basu)/PT-2834.csv") %>% as.matrix()
+rownames(olalekan_data_2834) <- olalekan_data_2834[,1]
+olalekan_data_2834 <- olalekan_data_2834[,2:ncol(olalekan_data_2834)]
+
+olalekan_2834 <- CreateSeuratObject(olalekan_data_2834, project = "2834")
+
+
+olalekan_data_3232 <- read_csv("data/Olalekan et al (Basu)/PT-3232.csv") %>% as.matrix()
+rownames(olalekan_data_3232) <- olalekan_data_3232[,1]
+olalekan_data_3232 <- olalekan_data_3232[,2:ncol(olalekan_data_3232)]
+
+olalekan_3232 <- CreateSeuratObject(olalekan_data_3232, project = "3232")
+
+
+olalekan_data_3401 <- read_csv("data/Olalekan et al (Basu)/PT-3401.csv") %>% as.matrix()
+rownames(olalekan_data_3401) <- olalekan_data_3401[,1]
+olalekan_data_3401 <- olalekan_data_3401[,2:ncol(olalekan_data_3401)]
+
+olalekan_3401 <- CreateSeuratObject(olalekan_data_3401, project = "3401")
+
+
+olalekan_data_4806 <- read_csv("data/Olalekan et al (Basu)/PT-4806.csv") %>% as.matrix()
+rownames(olalekan_data_4806) <- olalekan_data_4806[,1]
+olalekan_data_4806 <- olalekan_data_4806[,2:ncol(olalekan_data_4806)]
+
+olalekan_4806 <- CreateSeuratObject(olalekan_data_4806, project = "4806")
+
+
+olalekan_data_5150 <- read_csv("data/Olalekan et al (Basu)/PT-5150.csv") %>% as.matrix()
+rownames(olalekan_data_5150) <- olalekan_data_5150[,1]
+olalekan_data_5150 <- olalekan_data_5150[,2:ncol(olalekan_data_5150)]
+
+olalekan_5150 <- CreateSeuratObject(olalekan_data_5150, project = "5150")
+
+
+olalekan_data_6885 <- read_csv("data/Olalekan et al (Basu)/PT-6885.csv") %>% as.matrix()
+rownames(olalekan_data_6885) <- olalekan_data_6885[,1]
+olalekan_data_6885 <- olalekan_data_6885[,2:ncol(olalekan_data_6885)]
+
+olalekan_6885 <- CreateSeuratObject(olalekan_data_6885, project = "6885")
+
+olalekan <- merge(olalekan_2834, c(olalekan_3232, olalekan_3401, olalekan_4806, olalekan_5150, olalekan_6885))
+
+olalekan$sample_id <- olalekan$orig.ident
+
+```
+
+#choose which dataset to use for the following analyses
+```{r choose dataset for subsequent analyses}
+
+ovca_obj <- olbrecht
+
+###or
+
+#ovca_obj <- izar
+
+###or
+
+#ovca_obj <- olalekan
+
+```
+
+
+```{r quality control}
+
+ovca_obj <- PercentageFeatureSet(ovca_obj, pattern = "^MT-", col.name = "pMT")
+ovca_obj <- PercentageFeatureSet(ovca_obj, pattern = "^HBA|^HBB", col.name = "pHB")
+ovca_obj <- PercentageFeatureSet(ovca_obj, pattern = "^RPS|^RPL", col.name = "pRP")
+
+qcparams <- c("nFeature_RNA", "nCount_RNA", "pMT", "pHB", "pRP")
+for (i in seq_along(qcparams)){
+  print(VlnPlot(object = ovca_obj, features = qcparams[i], group.by = "sample_id", pt.size = 0))
+}
+for (i in seq_along(qcparams)){
+  print(RidgePlot(object = ovca_obj, features = qcparams[i], group.by = "sample_id"))
+}
+
+```
+
+```{r filtering and normalization}
+
+ovca_obj <- subset(ovca_obj, subset = 
+                     nFeature_RNA > 500 & 
+                     nFeature_RNA < 6000 &
+                     nCount_RNA > 1000 &
+                     nCount_RNA < 60000 &
+                     pMT < 20)
+
+ovca_obj <- SCTransform(ovca_obj, verbose = T, conserve.memory = T)
+
+```
+
+```{r PCA, clustering, UMAP}
+
+ovca_obj <- RunPCA(ovca_obj)
+ElbowPlot(ovca_obj, ndims = 50)
+
+ovca_obj <- RunUMAP(ovca_obj, dims = 1:10, verbose = T)
+
+ovca_obj <- FindNeighbors(ovca_obj, dims = 1:10)
+
+for (i in c(0.2, 0.3, 0.4, 0.5, 1, 2)) {
+  ovca_obj <- FindClusters(ovca_obj, resolution = i)
+  print(DimPlot(ovca_obj, reduction = "umap") + labs(title = paste0("resolution: ", i)))
+}
+
+for (i in c("nFeature_RNA", "nCount_RNA", "pMT", "pHB", "pRP")) {
+  print(FeaturePlot(ovca_obj, features = i, coord.fixed = T, order = T))
+}
+
+DimPlot(ovca_obj, group.by = "sample_id")
+DimPlot(ovca_obj, group.by = "SCT_snn_res.0.2", label = T)
+
+#for olbrecht et al. dataset
+#DimPlot(olbrecht, group.by = "sample_site")
+#DimPlot(olbrecht, group.by = "sample_type")
+#DimPlot(olbrecht, group.by = "patient_id")
+#DimPlot(olbrecht, group.by = "SCT_snn_res.0.2", label = T)
+
+#for izar et al. dataset
+#DimPlot(izar, group.by = "sample_ID")
+#DimPlot(izar, group.by = "patient")
+#DimPlot(izar, group.by = "clst")
+#DimPlot(izar, group.by = "SCT_snn_res.0.2", label = T)
+
+```
+
+```{r cell cycle scoring}
+
+ovca_obj <- score_cc(ovca_obj)
+
+```
+#choose the set of main cell type markers
+```{r choose set of main cell type markers}
+
+##if analyzing olbrecht et al. dataset
+mainmarkers <- c("PECAM1", "VWF", "ACTA2", "COL1A1", "JCHAIN", "CD79A", "CD3E", "NKG7", "PTPRC", "CD68", "LYZ", "KIT", "EPCAM", "KRT7", "KRT19", "STAR", "PLA2G2A", "UPK3B")
+
+###or
+
+##if analyzing izar et al. dataset
+#mainmarkers <- c("ACTA2", "COL1A1", "CD79A", "CD3E", "NKG7", "PTPRC", "CD68", "LYZ", "EPCAM", "KRT7", "KRT19", "PLA2G2A", "UPK3B", "LAMP3")
+
+###or
+
+##if analyzing olalekan et al. dataset
+#mainmarkers <- c("PECAM1", "VWF", "ACTA2", "COL1A1", "COL2A1", "JCHAIN", "CD79A", "CD3E", "NKG7", "PTPRC", "LYZ", "KIT", "EPCAM", "KRT7", "KRT19", "STAR", "PLA2G2A", "UPK3B")
+
+```
+
+```{r calculate cluster marker genes}
+
+#Idents(ovca_obj) <- ovca_obj@meta.data$SCT_snn_res.0.2
+
+#markers <- FindAllMarkers(ovca_obj, only.pos = T, min.pct = 0.25, min.diff.pct = 0.25)
+
+#top_markers <- markers %>% group_by(cluster) %>% top_n(5, wt = avg_log2FC)
+
+#DoHeatmap(ovca_obj, features = top_markers$gene, draw.lines = F) + scale_fill_viridis_c()
+
+```
+
+#choose table to use for curated cell type annotation
+```{r choose curated cell type annotation}
+
+##if analyzing olbrecht et al. dataset
+annotation_curated_main <- read_excel("curated_annotation/curated_annotation_olbrecht.xlsx")
+
+###or
+
+##if analyzing izar et al. dataset
+#annotation_curated_main <- read_excel("curated_annotation/curated_annotation_izar.xlsx")
+
+###or
+
+##if analyzing olalekan et al. dataset
+#annotation_curated_main <- read_excel("curated_annotation/curated_annotation_olalekan.xlsx")
+
+```
+
+```{r cell type annotation}
+
+Idents(ovca_obj) <- ovca_obj$SCT_snn_res.0.2
+new_ids_main <- annotation_curated_main$cell_type
+names(new_ids_main) <- levels(ovca_obj)
+ovca_obj <- RenameIdents(ovca_obj, new_ids_main)
+ovca_obj@meta.data$cell_type <- Idents(ovca_obj)
+
+```
+
+```{r RGS2 low vs. high}
+
+#binarize tumor cells in RGS2 low and high
+
+ovca_obj_epi <- subset(ovca_obj, subset = cell_type == "Tumor cells") %>% ScaleData()
+
+ovca_obj_epi_RGS2_data <- FetchData(ovca_obj_epi, slot = "counts", vars = "sct_RGS2") %>% mutate(RGS2_type = ifelse(sct_RGS2 > median(sct_RGS2), "high", "low"))
+
+ovca_obj_epi <- AddMetaData(ovca_obj_epi, metadata = ovca_obj_epi_RGS2_data)
+
+
+
+#cell cycles in RGS2 low vs. high
+
+ovca_obj_epi_cc_data <- FetchData(ovca_obj_epi, c("RGS2_type", "Phase"))
+
+ggplot(data = ovca_obj_epi_cc_data) + 
+  geom_bar(mapping = aes(x = Phase, fill = RGS2_type, ), position = "fill")
+
+ggplot(data = ovca_obj_epi_cc_data) + 
+  geom_bar(mapping = aes(x = RGS2_type, fill = Phase, ), position = "fill")
+ggsave2("BarPlot_cellcycle.png", path = "output", width = 15, height = 15, units = "cm")
+ggsave2("BarPlot_cellcycle.pdf", path = "output", width = 15, height = 15, units = "cm")
+
+
+
+#differentially expressed genes in RGS2 low vs. high
+
+Idents(ovca_obj_epi) <- ovca_obj_epi@meta.data$RGS2_type
+
+markers <- FindAllMarkers(ovca_obj_epi, only.pos = T, min.pct = 0.15, min.diff.pct = 0.15)
+
+top_markers <- markers %>% group_by(cluster) %>% top_n(10, wt = avg_log2FC)
+
+DoHeatmap(ovca_obj_epi, features = top_markers$gene, group.by = "RGS2_type", draw.lines = F, slot = "counts") + scale_fill_viridis_c()
+
+#plots
+ggsave2("HeatMap_RGS2_high_vs_low.png", path = "output", width = 20, height = 20, units = "cm")
+ggsave2("HeatMap_RGS2_high_vs_low.pdf", path = "output", width = 20, height = 20, units = "cm")
+
+DimPlot(ovca_obj_epi, group.by = "RGS2_type")
+ggsave2("DimPlot_RGS2type.png", path = "output", width = 15, height = 15, units = "cm")
+ggsave2("DimPlot_RGS2type.pdf", path = "output", width = 15, height = 15, units = "cm")
+
+#marker gene table
+write.csv(markers, "output/marker_genes_RGS2_high_vs_low.csv")
+
+#calculate and write spearman correlation coefficients
+ovca_obj_epi_GEX_data <- FetchData(ovca_obj_epi, slot = "counts", vars = markers$gene)
+spearman_table <- cor(ovca_obj_epi_GEX_data, use = "all.obs", method = "spearman")
+write.csv(spearman_table, "output/spearman_correlation_coefficients.csv")
+
+```
+
+```{r other plots}
+
+DimPlot(ovca_obj, group.by = "SCT_snn_res.0.2", label = T)
+ggsave2("DimPlot_clusters.png", path = "output", width = 15, height = 15, units = "cm")
+ggsave2("DimPlot_clusters.pdf", path = "output", width = 15, height = 15, units = "cm")
+
+DotPlot(ovca_obj, features = mainmarkers, group.by = "SCT_snn_res.0.2") + 
+  coord_flip()
+ggsave2("DotPlot_celltypemarkers.png", path = "output", width = 20, height = 15, units = "cm")
+ggsave2("DotPlot_celltypemarkers.pdf", path = "output", width = 20, height = 15, units = "cm")
+
+DimPlot(ovca_obj, group.by = "cell_type", cols = use_colors)
+ggsave2("DimPlot_celltype.png", path = "output", width = 15, height = 15, units = "cm")
+ggsave2("DimPlot_celltype.pdf", path = "output", width = 15, height = 15, units = "cm")
+
+VlnPlot(ovca_obj, "RGS2", group.by = "cell_type", pt.size = 0, cols = use_colors) + NoLegend()
+ggsave2("VlnPlot_RGS2.png", path = "output", width = 15, height = 10, units = "cm")
+ggsave2("VlnPlot_RGS2.pdf", path = "output", width = 15, height = 10, units = "cm")
+
+```
