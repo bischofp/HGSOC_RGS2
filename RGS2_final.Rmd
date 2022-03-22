@@ -44,7 +44,7 @@ score_cc <- function(seu_obj) {
 
 #load gene expression data
 
-olbrecht_data <- readRDS("C:/Users/Phili/Documents/Forschung/SCS_HGSOC/data/Olbrecht et al (Lambrecht)/2095-Olbrecht_counts_matrix.rds")
+olbrecht_data <- readRDS("data/Olbrecht et al (Lambrecht)/2095-Olbrecht_counts_matrix.rds")
 
 olbrecht <- CreateSeuratObject(olbrecht_data, min.cells = 3)
 
